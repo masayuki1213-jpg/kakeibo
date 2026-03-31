@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>完全版 家計簿アプリ</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #f5f7fb;
+      color: #222;
+      padding: 18px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      background: #fff;
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.08);
+    }
+    h1, h2, h3 { margin-top: 0; }
+    .small { font-size: 13px; color: #666; }
+
+    .section {
+      margin-bottom: 28px;
+      background: #fafafa;
+      border: 1px solid #eee;
+      border-radius: 16px;
+      padding: 18px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: #f1f5f9;
+      border-radius: 16px;
+      padding: 16px;
+      text-align: center;
+    }
+    .amount {
+      font-size: 24px;
+      font-weight: bold;
+      margin-top: 8px;
+    }
+    .income { color: #16a34a; }
+    .expense { color: #dc2626; }
+
+    .grid-2, .grid-3, .grid-4, .grid-5 {
+      display: grid;
+      gap: 12px;
+    }
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .grid-5 { grid-template-columns: repeat(5, 1fr); }
+
+    input, select, button, textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      font-size: 15px;
+    }
+    textarea { resize: vertical; min-height: 80px; }
+
+    button {
+      border: none;
+      background: #2563eb;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover { opacity: 0.93; }
+    .gray { background: #64748b; }
+    .green { background: #16a34a; }
+    .orange { background: #ea580c; }
+    .danger { background: #dc2626; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 12px;
+    }
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+      font-size: 14px;
+    }
+    th { background: #f8fafc; }
+
+    .tag {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .fixed { background: #dbeafe; color: #1d4ed8; }
+    .variable { background: #fef3c7; color: #b45309; }
+    .income-tag { background: #dcfce7; color: #15803d; }
+
+    .bar-row { margin-bottom: 12px; }
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+    .bar {
+      height: 18px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      background: #2563eb;
+      border-radius: 999px;
+    }
+
+    .line-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      min-height: 220px;
+      padding: 20px 10px 10px;
+      border: 1px solid #eee;
+      border-radius: 14px;
+      background: white;
+      overflow-x: auto;
+    }
+    .line-col {
+      min-width: 70px;
+      text-align: center;
+    }
+    .line-bar-wrap {
+      height: 160px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .line-income, .line-expense {
+      width: 20px;
+      border-radius: 8px 8px 0 0;
+    }
+    .line-income { background: #22c55e; }
+    .line-expense { background: #ef4444; }
+
+    .right { text-align: right; }
+
+    @media (max-width: 900px) {
+      .summary, .grid-2, .grid-3, .grid-4, .grid-5 {
+        grid-template-columns: 1fr;
+      }
+      table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+      .line-col {
+        min-width: 90px;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>完全版 家計簿アプリ</h1>
+  <p class="small">保存対応 / 編集 / 月別予算 / 固定費自動 / CSV / グラフ / 検索 / 並び替え</p>
+
+  <div class="summary">
+    <div class="card">
+      <h3>収入合計</h3>
+      <div class="amount income" id="totalIncome">¥0</div>
+    </div>
+    <div class="card">
+      <h3>支出合計</h3>
+      <div class="amount expense" id="totalExpense">¥0</div>
+    </div>
+    <div class="card">
+      <h3>残高</h3>
+      <div class="amount" id="balance">¥0</div>
+    </div>
+    <div class="card">
+      <h3>今月予算</h3>
+      <div class="amount" id="currentBudget">¥0</div>
+    </div>
+    <div class="card">
+      <h3>予算残</h3>
+      <div class="amount" id="budgetRemaining">¥0</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>月の切り替え / データ操作</h2>
+    <div class="grid-5">
+      <input type="month" id="monthFilter">
+      <button class="gray" onclick="setCurrentMonth()">今月に戻す</button>
+      <button class="gray" onclick="clearMonthFilter()">全期間表示</button>
+      <button class="green" onclick="downloadCSV()">CSVダウンロード</button>
+      <button class="danger" onclick="resetAllData()">全データ削除</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>月別予算設定</h2>
+    <div class="grid-3">
+      <input type="month" id="budgetMonth">
+      <input type="number" id="monthlyBudget" placeholder="この月の予算（例：150000）">
+      <button onclick="saveBudget()">この月の予算を保存</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>カテゴリ管理</h2>
+    <div class="grid-5">
+      <input type="text" id="newCategoryName" placeholder="カテゴリ名（例：カフェ代）">
+      <select id="newCategoryKind">
+        <option value="変動費">変動費</option>
+        <option value="固定費">固定費</option>
+        <option value="収入">収入</option>
+      </select>
+      <input type="number" id="fixedAmount" placeholder="固定費の自動金額（任意）">
+      <button onclick="addCategory()">カテゴリ追加</button>
+      <button class="gray" onclick="renderCategoryTable()">一覧更新</button>
+    </div>
+    <p class="small">※ 固定費に金額を入れると、その月に未登録なら「固定費自動反映」ボタンで自動追加できます。</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>カテゴリ名</th>
+          <th>分類</th>
+          <th>固定金額</th>
+          <th>編集</th>
+          <th>削除</th>
+        </tr>
+      </thead>
+      <tbody id="categoryTable"></tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>収支を入力</h2>
+    <form id="moneyForm">
+      <div class="grid-5">
+        <input type="date" id="date" required>
+        <select id="type" required>
+          <option value="">収入 / 支出</option>
+          <option value="収入">収入</option>
+          <option value="支出">支出</option>
+        </select>
+        <select id="category" required>
+          <option value="">カテゴリ選択</option>
+        </select>
+        <input type="number" id="amount" placeholder="金額" required>
+        <button type="submit" id="submitBtn">記録を追加</button>
+      </div>
+      <div class="grid-2" style="margin-top:12px;">
+        <input type="text" id="memo" placeholder="メモ（任意）">
+        <button type="button" class="orange" onclick="applyFixedCosts()">固定費をこの月に自動反映</button>
+      </div>
+    </form>
+    <p class="small" id="editStatus">新規追加モード</p>
+  </div>
+
+  <div class="section">
+    <h2>検索 / 並び替え</h2>
+    <div class="grid-4">
+      <input type="text" id="searchKeyword" placeholder="メモ・カテゴリで検索">
+      <select id="sortOption">
+        <option value="date_desc">日付（新しい順）</option>
+        <option value="date_asc">日付（古い順）</option>
+        <option value="amount_desc">金額（高い順）</option>
+        <option value="amount_asc">金額（低い順）</option>
+      </select>
+      <button class="gray" onclick="renderRecords()">反映</button>
+      <button class="gray" onclick="clearSearch()">検索クリア</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>カテゴリ別 支出集計</h2>
+    <div id="categorySummary"></div>
+    <div id="categoryBars"></div>
+  </div>
+
+  <div class="section">
+    <h2>月別収支推移</h2>
+    <div class="line-chart" id="monthlyTrend"></div>
+  </div>
+
+  <div class="section">
+    <h2>履歴一覧</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>日付</th>
+          <th>区分</th>
+          <th>カテゴリ</th>
+          <th>分類</th>
+          <th>金額</th>
+          <th>メモ</th>
+          <th>編集</th>
+          <th>削除</th>
+        </tr>
+      </thead>
+      <tbody id="recordTable"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEYS = {
+  categories: "kakeibo_complete_categories",
+  records: "kakeibo_complete_records",
+  budgets: "kakeibo_complete_budgets"
+};
+
+let categories = JSON.parse(localStorage.getItem(STORAGE_KEYS.categories)) || [
+  { name: "食費", kind: "変動費", fixedAmount: 0 },
+  { name: "交通費", kind: "変動費", fixedAmount: 0 },
+  { name: "住居費", kind: "固定費", fixedAmount: 65000 },
+  { name: "通信費", kind: "固定費", fixedAmount: 8000 },
+  { name: "日用品", kind: "変動費", fixedAmount: 0 },
+  { name: "娯楽", kind: "変動費", fixedAmount: 0 },
+  { name: "給料", kind: "収入", fixedAmount: 0 },
+  { name: "副収入", kind: "収入", fixedAmount: 0 }
+];
+
+let records = JSON.parse(localStorage.getItem(STORAGE_KEYS.records)) || [];
+let budgets = JSON.parse(localStorage.getItem(STORAGE_KEYS.budgets)) || {};
+let editingIndex = null;
+
+const categorySelect = document.getElementById("category");
+const recordTable = document.getElementById("recordTable");
+const categoryTable = document.getElementById("categoryTable");
+const categorySummary = document.getElementById("categorySummary");
+const categoryBars = document.getElementById("categoryBars");
+const monthlyTrend = document.getElementById("monthlyTrend");
+const monthFilter = document.getElementById("monthFilter");
+const budgetMonth = document.getElementById("budgetMonth");
+const monthlyBudgetInput = document.getElementById("monthlyBudget");
+
+function todayStr() {
+  const d = new Date();
+  return d.toISOString().split("T")[0];
+}
+function currentMonthStr() {
+  const d = new Date();
+  return d.toISOString().slice(0, 7);
+}
+function formatYen(num) {
+  return `¥${Number(num || 0).toLocaleString()}`;
+}
+function saveData() {
+  localStorage.setItem(STORAGE_KEYS.categories, JSON.stringify(categories));
+  localStorage.setItem(STORAGE_KEYS.records, JSON.stringify(records));
+  localStorage.setItem(STORAGE_KEYS.budgets, JSON.stringify(budgets));
+}
+function getCategoryKind(categoryName) {
+  const found = categories.find(c => c.name === categoryName);
+  return found ? found.kind : "-";
+}
+function getCategory(categoryName) {
+  return categories.find(c => c.name === categoryName);
+}
+
+function setCurrentMonth() {
+  monthFilter.value = currentMonthStr();
+  renderRecords();
+}
+function clearMonthFilter() {
+  monthFilter.value = "";
+  renderRecords();
+}
+function clearSearch() {
+  document.getElementById("searchKeyword").value = "";
+  document.getElementById("sortOption").value = "date_desc";
+  renderRecords();
+}
+
+function updateCategoryOptions() {
+  categorySelect.innerHTML = '<option value="">カテゴリ選択</option>';
+  categories.forEach(cat => {
+    const option = document.createElement("option");
+    option.value = cat.name;
+    option.textContent = `${cat.name}（${cat.kind}）`;
+    categorySelect.appendChild(option);
+  });
+}
+
+function addCategory() {
+  const name = document.getElementById("newCategoryName").value.trim();
+  const kind = document.getElementById("newCategoryKind").value;
+  const fixedAmount = Number(document.getElementById("fixedAmount").value) || 0;
+
+  if (!name) {
+    alert("カテゴリ名を入力してください");
+    return;
+  }
+  if (categories.some(c => c.name === name)) {
+    alert("そのカテゴリはすでに存在します");
+    return;
+  }
+
+  categories.push({ name, kind, fixedAmount });
+  saveData();
+  updateCategoryOptions();
+  renderCategoryTable();
+
+  document.getElementById("newCategoryName").value = "";
+  document.getElementById("fixedAmount").value = "";
+}
+
+function editCategory(index) {
+  const current = categories[index];
+  const newName = prompt("カテゴリ名を入力してください", current.name);
+  if (!newName || !newName.trim()) return;
+
+  const newKind = prompt("分類を入力してください（固定費 / 変動費 / 収入）", current.kind);
+  if (!newKind || !newKind.trim()) return;
+
+  const newFixed = prompt("固定費自動金額（不要なら0）", current.fixedAmount || 0);
+  const oldName = current.name;
+
+  categories[index] = {
+    name: newName.trim(),
+    kind: newKind.trim(),
+    fixedAmount: Number(newFixed) || 0
+  };
+
+  records = records.map(r => {
+    if (r.category === oldName) return { ...r, category: newName.trim() };
+    return r;
+  });
+
+  saveData();
+  updateCategoryOptions();
+  renderCategoryTable();
+  renderRecords();
+}
+
+function deleteCategory(index) {
+  const target = categories[index];
+  const used = records.some(r => r.category === target.name);
+  if (used) {
+    const ok = confirm("このカテゴリは履歴で使われています。削除しますか？");
+    if (!ok) return;
+  }
+  categories.splice(index, 1);
+  saveData();
+  updateCategoryOptions();
+  renderCategoryTable();
+  renderRecords();
+}
+
+function renderCategoryTable() {
+  categoryTable.innerHTML = "";
+  categories.forEach((cat, index) => {
+    const cls = cat.kind === "固定費" ? "fixed" : cat.kind === "変動費" ? "variable" : "income-tag";
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${cat.name}</td>
+      <td><span class="tag ${cls}">${cat.kind}</span></td>
+      <td>${formatYen(cat.fixedAmount || 0)}</td>
+      <td><button class="gray" onclick="editCategory(${index})">編集</button></td>
+      <td><button class="danger" onclick="deleteCategory(${index})">削除</button></td>
+    `;
+    categoryTable.appendChild(row);
+  });
+}
+
+function saveBudget() {
+  const month = budgetMonth.value;
+  const amount = Number(monthlyBudgetInput.value) || 0;
+
+  if (!month) {
+    alert("予算を設定する月を選んでください");
+    return;
+  }
+  budgets[month] = amount;
+  saveData();
+  renderRecords();
+  alert(`${month} の予算を保存しました`);
+}
+
+function getFilteredRecords() {
+  let filtered = [...records];
+  const selectedMonth = monthFilter.value;
+  const keyword = document.getElementById("searchKeyword").value.trim().toLowerCase();
+  const sortOption = document.getElementById("sortOption").value;
+
+  if (selectedMonth) {
+    filtered = filtered.filter(r => r.date.startsWith(selectedMonth));
+  }
+
+  if (keyword) {
+    filtered = filtered.filter(r =>
+      (r.memo || "").toLowerCase().includes(keyword) ||
+      (r.category || "").toLowerCase().includes(keyword)
+    );
+  }
+
+  if (sortOption === "date_desc") filtered.sort((a,b) => b.date.localeCompare(a.date));
+  if (sortOption === "date_asc") filtered.sort((a,b) => a.date.localeCompare(b.date));
+  if (sortOption === "amount_desc") filtered.sort((a,b) => Number(b.amount) - Number(a.amount));
+  if (sortOption === "amount_asc") filtered.sort((a,b) => Number(a.amount) - Number(b.amount));
+
+  return filtered;
+}
+
+function renderRecords() {
+  const filtered = getFilteredRecords();
+  recordTable.innerHTML = "";
+
+  let totalIncome = 0;
+  let totalExpense = 0;
+  const expenseByCategory = {};
+
+  filtered.forEach(record => {
+    const realIndex = records.indexOf(record);
+    const kind = getCategoryKind(record.category);
+    const tagClass = kind === "固定費" ? "fixed" : kind === "変動費" ? "variable" : "income-tag";
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${record.date}</td>
+      <td class="${record.type === "収入" ? "income" : "expense"}">${record.type}</td>
+      <td>${record.category}</td>
+      <td><span class="tag ${tagClass}">${kind}</span></td>
+      <td>${formatYen(record.amount)}</td>
+      <td>${record.memo || ""}</td>
+      <td><button class="orange" onclick="startEditRecord(${realIndex})">編集</button></td>
+      <td><button class="danger" onclick="deleteRecord(${realIndex})">削除</button></td>
+    `;
+    recordTable.appendChild(row);
+
+    if (record.type === "収入") {
+      totalIncome += Number(record.amount);
+    } else {
+      totalExpense += Number(record.amount);
+      expenseByCategory[record.category] = (expenseByCategory[record.category] || 0) + Number(record.amount);
+    }
+  });
+
+  const selectedMonth = monthFilter.value || currentMonthStr();
+  const budget = budgets[selectedMonth] || 0;
+
+  document.getElementById("totalIncome").textContent = formatYen(totalIncome);
+  document.getElementById("totalExpense").textContent = formatYen(totalExpense);
+  document.getElementById("balance").textContent = formatYen(totalIncome - totalExpense);
+  document.getElementById("currentBudget").textContent = formatYen(budget);
+  document.getElementById("budgetRemaining").textContent = formatYen(budget - totalExpense);
+
+  renderCategorySummary(expenseByCategory);
+  renderMonthlyTrend();
+}
+
+function renderCategorySummary(expenseByCategory) {
+  categorySummary.innerHTML = "";
+  categoryBars.innerHTML = "";
+
+  const entries = Object.entries(expenseByCategory).sort((a,b) => b[1] - a[1]);
+  if (entries.length === 0) {
+    categorySummary.innerHTML = "<p class='small'>この条件の支出データはまだありません。</p>";
+    return;
+  }
+
+  const max = entries[0][1];
+  entries.forEach(([cat, amount]) => {
+    const p = document.createElement("p");
+    p.innerHTML = `<strong>${cat}</strong>：${formatYen(amount)}`;
+    categorySummary.appendChild(p);
+
+    const row = document.createElement("div");
+    row.className = "bar-row";
+    row.innerHTML = `
+      <div class="bar-label">
+        <span>${cat}</span>
+        <span>${formatYen(amount)}</span>
+      </div>
+      <div class="bar">
+        <div class="bar-fill" style="width:${(amount/max)*100}%"></div>
+      </div>
+    `;
+    categoryBars.appendChild(row);
+  });
+}
+
+function renderMonthlyTrend() {
+  monthlyTrend.innerHTML = "";
+  const map = {};
+
+  records.forEach(r => {
+    const month = r.date.slice(0,7);
+    if (!map[month]) map[month] = { income: 0, expense: 0 };
+    if (r.type === "収入") map[month].income += Number(r.amount);
+    else map[month].expense += Number(r.amount);
+  });
+
+  const months = Object.keys(map).sort();
+  if (months.length === 0) {
+    monthlyTrend.innerHTML = "<p class='small'>まだ月別推移データがありません。</p>";
+    return;
+  }
+
+  const max = Math.max(...months.flatMap(m => [map[m].income, map[m].expense, 1]));
+
+  months.forEach(month => {
+    const income = map[month].income;
+    const expense = map[month].expense;
+    const incomeHeight = (income / max) * 150;
+    const expenseHeight = (expense / max) * 150;
+
+    const col = document.createElement("div");
+    col.className = "line-col";
+    col.innerHTML = `
+      <div class="line-bar-wrap">
+        <div class="line-income" style="height:${incomeHeight}px;" title="収入 ${formatYen(income)}"></div>
+        <div class="line-expense" style="height:${expenseHeight}px;" title="支出 ${formatYen(expense)}"></div>
+      </div>
+      <div class="small">${month}</div>
+      <div class="small">収 ${Math.round(income/1000)}k / 支 ${Math.round(expense/1000)}k</div>
+    `;
+    monthlyTrend.appendChild(col);
+  });
+}
+
+function deleteRecord(index) {
+  records.splice(index, 1);
+  saveData();
+  renderRecords();
+}
+
+function startEditRecord(index) {
+  const r = records[index];
+  editingIndex = index;
+
+  document.getElementById("date").value = r.date;
+  document.getElementById("type").value = r.type;
+  document.getElementById("category").value = r.category;
+  document.getElementById("amount").value = r.amount;
+  document.getElementById("memo").value = r.memo || "";
+
+  document.getElementById("submitBtn").textContent = "更新する";
+  document.getElementById("editStatus").textContent = `編集中：${r.date} / ${r.category} / ${formatYen(r.amount)}`;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function resetFormMode() {
+  editingIndex = null;
+  document.getElementById("moneyForm").reset();
+  document.getElementById("date").value = todayStr();
+  document.getElementById("submitBtn").textContent = "記録を追加";
+  document.getElementById("editStatus").textContent = "新規追加モード";
+}
+
+function applyFixedCosts() {
+  const targetMonth = monthFilter.value || currentMonthStr();
+  const targetDate = `${targetMonth}-01`;
+
+  const fixedCategories = categories.filter(c => c.kind === "固定費" && Number(c.fixedAmount) > 0);
+  let addedCount = 0;
+
+  fixedCategories.forEach(cat => {
+    const exists = records.some(r =>
+      r.date.startsWith(targetMonth) &&
+      r.category === cat.name &&
+      r.type === "支出"
+    );
+
+    if (!exists) {
+      records.push({
+        date: targetDate,
+        type: "支出",
+        category: cat.name,
+        amount: Number(cat.fixedAmount),
+        memo: "固定費自動反映"
+      });
+      addedCount++;
+    }
+  });
+
+  saveData();
+  renderRecords();
+  alert(`${addedCount}件の固定費を追加しました`);
+}
+
+function downloadCSV() {
+  const filtered = getFilteredRecords();
+  let csv = "日付,区分,カテゴリ,分類,金額,メモ\n";
+
+  filtered.forEach(r => {
+    const row = [
+      r.date,
+      r.type,
+      r.category,
+      getCategoryKind(r.category),
+      r.amount,
+      `"${(r.memo || "").replace(/"/g, '""')}"`
+    ];
+    csv += row.join(",") + "\n";
+  });
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "kakeibo_complete_data.csv";
+  link.click();
+}
+
+function resetAllData() {
+  const ok = confirm("本当に全データを削除しますか？この操作は元に戻せません。");
+  if (!ok) return;
+
+  localStorage.removeItem(STORAGE_KEYS.categories);
+  localStorage.removeItem(STORAGE_KEYS.records);
+  localStorage.removeItem(STORAGE_KEYS.budgets);
+  location.reload();
+}
+
+document.getElementById("moneyForm").addEventListener("submit", function(e) {
+  e.preventDefault();
+
+  const date = document.getElementById("date").value;
+  const type = document.getElementById("type").value;
+  const category = document.getElementById("category").value;
+  const amount = Number(document.getElementById("amount").value);
+  const memo = document.getElementById("memo").value;
+
+  if (!date || !type || !category || !amount) {
+    alert("必須項目を入力してください");
+    return;
+  }
+
+  const data = { date, type, category, amount, memo };
+
+  if (editingIndex !== null) {
+    records[editingIndex] = data;
+  } else {
+    records.push(data);
+  }
+
+  saveData();
+  renderRecords();
+  resetFormMode();
+});
+
+document.getElementById("searchKeyword").addEventListener("input", renderRecords);
+document.getElementById("sortOption").addEventListener("change", renderRecords);
+monthFilter.addEventListener("change", renderRecords);
+
+monthFilter.value = currentMonthStr();
+budgetMonth.value = currentMonthStr();
+document.getElementById("date").value = todayStr();
+
+updateCategoryOptions();
+renderCategoryTable();
+renderRecords();
+</script>
+</body>
+</html>
